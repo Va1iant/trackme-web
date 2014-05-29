@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>TrackMe Web</title>
+<style type="text/css">
+div.listeven {
+	background-color: #E3EAEB;
+	color: #000000;
+	display: block;
+	padding: 2px;
+	width: 100%;
+}
+
+div.listodd {
+	background-color: #E7F8F9;
+	color: #000000;
+	display: block;
+	padding: 2px;
+	width: 100%;
+}
+
+div.listeven:hover {
+	background-color: #000000;
+	color: #ffffff;
+}
+
+div.listodd:hover {
+	background-color: #000000;
+	color: #ffffff;
+}
+</style>
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+<meta charset="utf-8">
+<style>
+html,body,#map-canvas {
+	height: 100%;
+	margin: 0px;
+	padding: 0px
+}
+</style>
+<script
+	src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"
+	type="text/javascript"></script>
+<script
+	src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
+<script>
+		var map;
+		
+		var infowindow;
+					
+		// in ms
+		var pollPeriod = 3000;
+					
+		var myUrlLiveInit = "/bapi/live/user/{{ userId }}";
+		var myUrlLiveUpdate = "/bapi/live/user/{{ userId }}/lastpoint";
+
+		function initialize() {
+			var mapOptions = {
+				zoom: 13,
+				center: new google.maps.LatLng(41.877720, -87.627187)
+			};
+			map = new google.maps.Map(document.getElementById('map-canvas'),
+			    	mapOptions);
+			    
+			infowindow = new google.maps.InfoWindow();
+			
+			ajax(myUrlLiveInit);
+		}
+		
+		google.maps.event.addDomListener(window, 'load', initialize);
+		
+		var active = true;
+		var newPoints = [];
+		
+		function ajax(url) {
+		
+			$.getJSON(url, function(data){
+			
+
+			 	document.getElementById("pagetitle").innerHTML = "{{ userId }}'s Broadcast (active)";
+				
+				if(data != null && data.length > 0)
+				{
+				
+					// check if we already got this point
+					if(newPoints.length > 0 && newPoints[newPoints.length - 1].tstamp == data[0].tstamp)
+					{
+						// no need to add in to database
+					}
+					else 
+					{
+
+						for (var i = 0; i < data.length; i++) 
+						{
+							
+							var point = data[i];
+							var marker = new google.maps.Marker({
+											position: new google.maps.LatLng(point.lat, point.lng),
+											map: map,
+											icon: graydot,
+											info: 	"<b>time</b>: " + point.tstamp + "<br />" +
+													"<b>dist</b>: " + point.tdist*0.000621371192 + " mil<br />"
+								});
+								
+							google.maps.event.addListener(marker, 'click', function() {
+								infowindow.setContent(this.info);
+								infowindow.open(map, this);
+							});
+							
+							
+							if(newPoints.length > 0)
+							{
+								var joggingPath = new google.maps.Polyline({
+									path: [new google.maps.LatLng(newPoints[newPoints.length-1].lat, newPoints[newPoints.length-1].lng), 
+										   new google.maps.LatLng(point.lat, point.lng)],
+									geodesic: true,
+									strokeColor: '#88AAFF',
+									strokeOpacity: 1.0,
+									strokeWeight: 4
+									});
+		
+		  						joggingPath.setMap(map);
+							}
+							
+							newPoints.push(point)
+						}
+						
+						var lastpoint = data[data.length-1];
+						
+						var centerLatLng = new google.maps.LatLng(lastpoint.lat, lastpoint.lng);
+						map.panTo(centerLatLng);
+						
+					}
+
+				}
+				
+				active = true;
+				
+				setTimeout("ajax(myUrlLiveUpdate)", pollPeriod);
+
+			}).fail(function(Error) {
+				
+				document.getElementById("pagetitle").innerHTML = "{{ userId }}'s Broadcast (offline)";
+
+			
+				active = false;
+				
+				// clear array
+				newPoints = [];
+				
+				setTimeout("ajax(myUrlLiveInit)", pollPeriod);
+				
+			});
+			
+		}
+		
+		var start_marker = {
+			url: '/res/start_marker.png',
+			size: new google.maps.Size(35, 35),
+			origin: new google.maps.Point(0,0),
+			anchor: new google.maps.Point(10, 35)
+		};
+		
+		var end_marker = {
+			url: '/res/end_marker.png',
+			size: new google.maps.Size(32, 32),
+			origin: new google.maps.Point(0,0),
+			anchor: new google.maps.Point(10, 32)
+		};
+		
+		var graydot = {
+			url: '/res/graydot.png',
+			size: new google.maps.Size(11, 11),
+			origin: new google.maps.Point(0,0),
+			anchor: new google.maps.Point(5, 5)
+		};
+		
+		
+		function redirect(url) {
+			window.location.href = "/history/user/" + document.getElementById("username").value;
+		}
+</script>
+    </script>
+</head>
+<body>
+
+	<!--<button onclick="pollStart()">Start polling</button> -->
+	<table border="1" style="width: 100%; height: 100%">
+		<tr>
+			<td colspan=2
+				style="text-align: center; background-color: grey; border: 2px solid;">
+				<h1 id=pagetitle>{% print userId %}'s Broadcast (offline)</h1>
+			</td>
+		</tr>
+		<tr valign="top">
+			<td style="width: 100%; height: 100%"><div id="map-canvas"></div></td>
+			<td style="overflow: auto;width:200px">
+				<input id="username" type="textbox" value="{% print userId %}"> 
+				<input type="button" value="See past sessions" onclick="redirect()"> <br /><br />
+
+				<div id="scriptoutput" />
+				
+			</td>
+		</tr>
+	</table>
+</body>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>TrackMe Web</title>
+<style type="text/css">
+div.listeven {
+	background-color: #E3EAEB;
+	color: #000000;
+	display: block;
+	padding: 2px;
+	width: 100%;
+}
+
+div.listodd {
+	background-color: #E7F8F9;
+	color: #000000;
+	display: block;
+	padding: 2px;
+	width: 100%;
+}
+
+div.listeven:hover {
+	background-color: #000000;
+	color: #ffffff;
+}
+
+div.listodd:hover {
+	background-color: #000000;
+	color: #ffffff;
+}
+</style>
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+<meta charset="utf-8">
+<style>
+html,body,#map-canvas {
+	height: 100%;
+	margin: 0px;
+	padding: 0px
+}
+</style>
+<script
+	src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
+<script>
+		var map;
+		
+		var infowindow;
+					
+		
+		var sessions = [ 	
+			{% for session in sessions %} 
+			{
+				tdist: {{ session.tdist }},
+				tstartstamp: "{{ session.tstamp }}",
+				duration: "{{ session.duration }}",
+				pointsdata: [ 
+				{% for point in session.points %}
+							{
+								tdist: {{ point.tdist }},
+								tstamp: "{{ point.tstamp }}",
+							},
+				{% endfor %}
+						],
+				points: [ 
+				{% for point in session.points %}
+							new google.maps.LatLng({{ point.lat }}, {{ point.lng }}), 
+				{% endfor %}
+						],
+			}, 
+			{% endfor %}
+		];	
+
+		function initialize() {
+		  var mapOptions = {
+		    zoom: 13,
+		    center: new google.maps.LatLng(41.877720, -87.627187)
+		  };
+		  map = new google.maps.Map(document.getElementById('map-canvas'),
+		      mapOptions);
+		      
+		  infowindow = new google.maps.InfoWindow();
+		      
+		}
+		
+		google.maps.event.addDomListener(window, 'load', initialize);
+		
+		var start_marker = {
+			url: '/res/start_marker.png',
+			size: new google.maps.Size(35, 35),
+			origin: new google.maps.Point(0,0),
+			anchor: new google.maps.Point(10, 35)
+		};
+		
+		var end_marker = {
+			url: '/res/end_marker.png',
+			size: new google.maps.Size(32, 32),
+			origin: new google.maps.Point(0,0),
+			anchor: new google.maps.Point(10, 32)
+		};
+		
+		var graydot = {
+			url: '/res/graydot.png',
+			size: new google.maps.Size(11, 11),
+			origin: new google.maps.Point(0,0),
+			anchor: new google.maps.Point(5, 5)
+		};
+		
+		
+		function listclick(index){
+		
+			sessionPoints = sessions[index].points;
+			sessionPointsData = sessions[index].pointsdata;
+			
+		    if (sessionPoints.length > 0)
+		    {
+				var centerLatLng = sessionPoints[0];
+				map.panTo(centerLatLng);
+			}
+			
+			var joggingPath = new google.maps.Polyline({
+							path: sessionPoints,
+							geodesic: true,
+							strokeColor: '#88AAFF',
+							strokeOpacity: 1.0,
+							strokeWeight: 4
+							});
+
+  			joggingPath.setMap(map);
+  			
+  			
+  			for (var i = 0; i < sessionPoints.length; i++) { 
+
+				if(i == 0) {
+
+					var marker = new google.maps.Marker({
+									position: sessionPoints[i],
+									map: map,
+									icon: start_marker,
+									info: "Start at " + sessionPointsData[i].tstamp
+						});
+					google.maps.event.addListener(marker, 'click', function() {
+						infowindow.setContent(this.info);
+						infowindow.open(map, this);
+					});
+					
+				}
+				else if( i == sessionPoints.length - 1) {
+					var marker = new google.maps.Marker({
+									position: sessionPoints[i],
+									map: map,
+									icon: end_marker,
+									info: "End at " + sessionPointsData[i].tstamp
+						});
+					google.maps.event.addListener(marker, 'click', function() {
+						infowindow.setContent(this.info);
+						infowindow.open(map, this);
+					});
+				}
+				else {
+				
+					var marker = new google.maps.Marker({
+									position: sessionPoints[i],
+									map: map,
+									icon: graydot,
+									info: 	"<b>time</b>: " + sessionPointsData[i].tstamp + "<br />" +
+											"<b>dist</b>: " + sessionPointsData[i].tdist*0.000621371192 + " mil<br />"
+						});
+					
+					google.maps.event.addListener(marker, 'click', function() {
+						infowindow.setContent(this.info);
+						infowindow.open(map, this);
+					});
+				}
+				
+			}
+			
+		}
+		
+		function redirect(url) {
+			window.location.href = "/live/user/" + document.getElementById("username").value;
+		}
+    </script>
+</head>
+<body>
+
+	<!--<button onclick="pollStart()">Start polling</button> -->
+	<table border="1" style="width: 100%; height: 100%">
+		<tr>
+			<td colspan=2
+				style="text-align: center; background-color: grey; border: 2px solid;">
+				<h1>{% print userId %}'s History</h1>
+			</td>
+		</tr>
+		<tr valign="top">
+			<td style="width: 100%; height: 100%"><div id="map-canvas"></div></td>
+			<td style="overflow: auto;width:200px">
+				<input id="username" type="textbox" value="{% print userId %}"> 
+				<input type="button" value="See live session" onclick="redirect()"> <br /><br />
+
+				<div style="font-size: 25px;">Sessions</div> <br /> 
+				
+				{% for session in sessions %} 
+				<div id="listlat{% print idx %}" class={% if loop.index0 is divisibleby 2 %}"listeven"{% else %}"listodd"{% endif %} onclick="listclick({{ loop.index0 }})" > 
+					<b>{{ loop.index }}</b>. {{ session.tstartstamp }} <br />
+					<b>dist</b>: {{ "%.3f"|format(session.tdist*0.000621371192) }} mil <br />
+					<b>time</b>: {{ session.duration }} <br />
+				</div>
+				{% endfor %}
+				
+			</td>
+		</tr>
+	</table>
+</body>

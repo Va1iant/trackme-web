@@ -10,8 +10,26 @@ indexes:
 # automatically uploaded to the admin console when you next deploy
 # your application using appcfg.py.
 
-- kind: Greeting
+- kind: Point
   ancestor: yes
   properties:
-  - name: date
+  - name: tstamp
+
+- kind: Point
+  ancestor: yes
+  properties:
+  - name: tstamp
+    direction: desc
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: live
+  - name: tstartstamp
+    direction: desc
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: tstartstamp
     direction: desc
